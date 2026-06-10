@@ -1,177 +1,231 @@
-# Documento Arquitetural — Flood Monitor
 
-**Disciplina:** Arquitetura Orientada a Serviço (SOA)  
-**Curso:** 3ESPY — FIAP 2026  
-**Professora:** Damiana Costa  
-**Tema:** ODS 9 — Indústria, Inovação e Infraestrutura  
+## 1. Problema abordado
 
----
+As enchentes urbanas são um problema recorrente em várias cidades brasileiras. Em períodos de chuva forte, alguns rios e córregos sobem rapidamente e podem causar alagamentos em avenidas, bairros e áreas próximas a fundos de vale.
 
-## 1. Problema Abordado
+Um dos pontos mais críticos é a dificuldade de acompanhar essas mudanças em tempo real. Muitas vezes, a população e os órgãos responsáveis só percebem a gravidade da situação quando o alagamento já aconteceu. Por isso, sistemas de monitoramento podem ajudar na identificação mais rápida de regiões de risco.
 
-Enchentes urbanas representam um dos maiores desafios das cidades brasileiras. Eventos de chuva intensa causam alagamentos repentinos que resultam em perdas humanas, materiais e econômicas. A falta de monitoramento em tempo real impede respostas rápidas por parte da defesa civil e da população.
-
-Cidades como São Paulo enfrentam esse problema ciclicamente, especialmente em regiões de fundos de vale onde rios e córregos transbordam com rapidez, sem que haja sistemas adequados de alerta precoce para comunidades vulneráveis.
+No contexto deste projeto, o problema escolhido foi o monitoramento de pontos sujeitos a enchentes, usando sensores simulados e uma API para registrar leituras de nível da água e precipitação.
 
 ---
 
-## 2. Objetivo da Solução
+## 2. Objetivo da solução
 
-O **Flood Monitor** é uma plataforma de monitoramento de enchentes baseada em APIs REST. Ela digitaliza e centraliza as informações coletadas por sensores físicos instalados em pontos estratégicos, oferecendo:
+O **Flood Monitor** é uma API REST criada para simular o monitoramento de enchentes urbanas. A ideia é permitir que sensores instalados em pontos estratégicos enviem dados para o sistema, que então registra as leituras e gera alertas quando o nível da água indicar risco.
 
-- Cadastro e gerenciamento de sensores de campo.
-- Registro contínuo de leituras (nível de água e precipitação).
-- Geração automática de alertas quando os limites críticos são ultrapassados.
-- Interface de consulta para sistemas externos (aplicativos, painéis da defesa civil, etc.).
+A aplicação permite:
 
-A solução atende ao ODS 9 ao criar uma **infraestrutura digital inovadora** que conecta sensores físicos a uma plataforma inteligente de gestão de riscos.
+* cadastrar sensores;
+* consultar sensores cadastrados;
+* registrar leituras de nível da água e precipitação;
+* calcular automaticamente o nível de alerta;
+* gerar alertas quando uma leitura indicar situação de risco;
+* consultar o histórico de leituras e alertas.
+
+O projeto se relaciona com o **ODS 9**, pois demonstra como uma infraestrutura digital pode ser usada para apoiar o monitoramento urbano e ajudar na organização de informações importantes para prevenção de desastres.
 
 ---
 
-## 3. Diagrama da Arquitetura
+## 3. Diagrama da arquitetura
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        CLIENTES / SISTEMAS                       │
-│         App Defesa Civil  |  Dashboard  |  IoT Sensor Gateway    │
-└────────────────────────┬─────────────────────────────────────────┘
-                         │ HTTPS + X-API-KEY
+```text
+┌────────────────────────────────────────────────────────────┐
+│                    CLIENTES / SISTEMAS                     │
+│          Swagger  |  Dashboard  |  Sensores simulados      │
+└────────────────────────┬───────────────────────────────────┘
+                         │ HTTP + X-API-KEY
                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    FLOOD MONITOR API                             │
-│                   (Spring Boot 3 / Java 17)                      │
-│                                                                  │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────┐  │
-│  │  ApiKeyFilter  │  │  Swagger UI    │  │  GlobalException   │  │
-│  │  (Segurança)   │  │  /swagger-ui   │  │  Handler           │  │
-│  └───────┬────────┘  └────────────────┘  └────────────────────┘  │
-│          │                                                        │
-│  ┌───────▼──────────────────────────────────────────────────┐    │
-│  │                  CONTROLLER LAYER                        │    │
-│  │   SensorController   LeituraController   AlertaController│    │
-│  │   /api/v1/sensores   /api/v1/leituras    /api/v1/alertas │    │
-│  └───────┬──────────────────────────────────────────────────┘    │
-│          │                                                        │
-│  ┌───────▼──────────────────────────────────────────────────┐    │
-│  │                   SERVICE LAYER                          │    │
-│  │   SensorService    LeituraService      AlertaService     │    │
-│  │   (CRUD + regras  (CRUD + cálculo de  (CRUD + alerta    │    │
-│  │    de validação)   nível automático)   automático)       │    │
-│  └───────┬──────────────────────────────────────────────────┘    │
-│          │                                                        │
-│  ┌───────▼──────────────────────────────────────────────────┐    │
-│  │                 REPOSITORY LAYER                         │    │
-│  │  SensorRepository  LeituraRepository  AlertaRepository   │    │
-│  │              (Spring Data JPA)                           │    │
-│  └───────┬──────────────────────────────────────────────────┘    │
-│          │                                                        │
-│  ┌───────▼──────────────────────────────────────────────────┐    │
-│  │                  MODEL LAYER                             │    │
-│  │         Sensor       Leitura        Alerta               │    │
-│  │         (Entity)     (Entity)       (Entity)             │    │
-│  └───────┬──────────────────────────────────────────────────┘    │
-└──────────┼───────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                  FLOOD MONITOR API                         │
+│              Spring Boot 3 / Java 17                       │
+│                                                            │
+│  ┌────────────────┐   ┌────────────────────────────────┐   │
+│  │  ApiKeyFilter  │   │  GlobalExceptionHandler         │   │
+│  │  Segurança     │   │  Tratamento de erros            │   │
+│  └───────┬────────┘   └────────────────────────────────┘   │
+│          │                                                 │
+│  ┌───────▼─────────────────────────────────────────────┐   │
+│  │                 Controller Layer                    │   │
+│  │  SensorController | LeituraController | AlertaCtrl  │   │
+│  └───────┬─────────────────────────────────────────────┘   │
+│          │                                                 │
+│  ┌───────▼─────────────────────────────────────────────┐   │
+│  │                  Service Layer                      │   │
+│  │  SensorService | LeituraService | AlertaService     │   │
+│  │  Regras de negócio e cálculo de alerta              │   │
+│  └───────┬─────────────────────────────────────────────┘   │
+│          │                                                 │
+│  ┌───────▼─────────────────────────────────────────────┐   │
+│  │                Repository Layer                     │   │
+│  │  SensorRepository | LeituraRepository | AlertaRepo  │   │
+│  │  Acesso ao banco com Spring Data JPA                 │   │
+│  └───────┬─────────────────────────────────────────────┘   │
+└──────────┼─────────────────────────────────────────────────┘
            │
-┌──────────▼───────────────────────────────────────────────────────┐
-│                     BANCO DE DADOS                               │
-│              H2 (dev) → PostgreSQL / Oracle (prod)               │
-│         sensores | leituras | alertas                            │
-└──────────────────────────────────────────────────────────────────┘
+           ▼
+┌────────────────────────────────────────────────────────────┐
+│                      Banco de Dados                        │
+│                         H2                                 │
+│             sensores | leituras | alertas                  │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Explicação dos Componentes
+## 4. Explicação dos componentes
 
-### 4.1 Model (Entidades)
+### 4.1 Model
 
-| Entidade   | Atributos principais                                           | Função                                      |
-|------------|----------------------------------------------------------------|---------------------------------------------|
-| `Sensor`   | id, nome, localizacao, latitude, longitude, status, criadoEm  | Representa o dispositivo físico de campo    |
-| `Leitura`  | id, sensor, nivelAgua, precipitacao, nivelAlerta, timestamp    | Medição registrada pelo sensor              |
-| `Alerta`   | id, sensor, leitura, mensagem, nivel, timestamp, ativo         | Notificação gerada quando há risco de cheia |
+A camada de model representa as entidades principais do sistema. Cada entidade corresponde a uma informação que precisa ser armazenada no banco.
 
-**Enum NivelAlerta:**
-- `NORMAL` — nível de água < 50 cm
-- `ATENCAO` — 50 a 100 cm
-- `ALERTA` — 100 a 150 cm
-- `CRITICO` — acima de 150 cm
+| Entidade  | Principais atributos                                         | Função                                                   |
+| --------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+| `Sensor`  | id, nome, localização, latitude, longitude, status, criadoEm | Representa um sensor instalado em um ponto da cidade.    |
+| `Leitura` | id, sensor, nivelAgua, precipitacao, nivelAlerta, timestamp  | Representa uma medição enviada por um sensor.            |
+| `Alerta`  | id, sensor, leitura, mensagem, nivel, timestamp, ativo       | Representa um alerta criado quando há risco de enchente. |
 
-### 4.2 Repository
+### 4.2 Níveis de alerta
 
-Interfaces Spring Data JPA. Herdam operações CRUD básicas e possuem métodos de consulta customizados como `findBySensorIdOrderByTimestampDesc` e `findByAtivoTrue`.
+O sistema classifica cada leitura de acordo com o nível da água informado.
 
-### 4.3 Service
+| Nível da água                  | Status    |
+| ------------------------------ | --------- |
+| Menor que 50 cm                | `NORMAL`  |
+| De 50 cm até menor que 100 cm  | `ATENCAO` |
+| De 100 cm até menor que 150 cm | `ALERTA`  |
+| A partir de 150 cm             | `CRITICO` |
 
-Camada de regras de negócio. Responsável por:
-- Validar existência de entidades relacionadas antes de operações.
-- Calcular automaticamente o `NivelAlerta` da leitura com base no nível de água.
-- Gerar alertas automáticos quando `nivelAlerta` for `ALERTA` ou `CRITICO`.
-
-### 4.4 Controller
-
-Recebe requisições HTTP, aplica validação Bean Validation (`@Valid`) e retorna respostas padronizadas em JSON via `ApiResponse<T>`. Segue semântica REST completa com GET, POST, PUT, PATCH e DELETE.
-
-### 4.5 DTO (Data Transfer Object)
-
-Classes internas `Request` e `Response` em cada DTO. Isolam o modelo de domínio da camada de apresentação, facilitando evoluções sem quebrar contratos.
-
-### 4.6 Segurança — ApiKeyFilter
-
-Filtro Servlet que intercepta todas as requisições e valida o header `X-API-KEY`. Endpoints públicos (Swagger, H2 Console) são liberados automaticamente. Retorna HTTP 401 para chaves ausentes ou inválidas.
-
-### 4.7 Tratamento de Erros — GlobalExceptionHandler
-
-`@RestControllerAdvice` que captura exceções e retorna mensagens padronizadas:
-- `400` — dados inválidos ou parâmetros incorretos
-- `404` — recurso não encontrado
-- `500` — erros não esperados do servidor
+Quando a leitura é classificada como `ALERTA` ou `CRITICO`, o sistema cria automaticamente um alerta relacionado ao sensor.
 
 ---
 
-## 5. Fluxo Básico da Aplicação
+### 4.3 Repository
 
+A camada repository faz a comunicação com o banco de dados. No projeto, ela utiliza o **Spring Data JPA**, o que evita a necessidade de escrever manualmente todas as consultas SQL.
+
+Os repositories são responsáveis por operações como:
+
+* salvar sensores, leituras e alertas;
+* buscar registros por ID;
+* listar dados cadastrados;
+* consultar leituras e alertas relacionados a um sensor.
+
+---
+
+### 4.4 Service
+
+A camada service concentra as principais regras de negócio do sistema.
+
+No Flood Monitor, ela é responsável por:
+
+* verificar se um sensor existe antes de cadastrar uma leitura;
+* calcular o nível de alerta com base no nível da água;
+* salvar a leitura no banco;
+* criar um alerta automaticamente quando necessário;
+* organizar as operações antes de devolver a resposta ao controller.
+
+Essa separação evita que o controller fique com muita lógica e deixa o código mais organizado.
+
+---
+
+### 4.5 Controller
+
+A camada controller recebe as requisições HTTP da API. Ela é responsável por disponibilizar os endpoints de sensores, leituras e alertas.
+
+Os principais endpoints seguem a estrutura:
+
+* `/api/v1/sensores`
+* `/api/v1/leituras`
+* `/api/v1/alertas`
+
+Os controllers recebem os dados, aplicam as validações dos DTOs e chamam os services para executar as regras do sistema.
+
+---
+
+### 4.6 DTO
+
+Os DTOs são usados para separar os dados recebidos ou enviados pela API das entidades do banco.
+
+Isso ajuda a evitar que a estrutura interna das entidades seja exposta diretamente nas respostas da API. Também facilita futuras mudanças no formato das requisições e respostas sem precisar alterar toda a modelagem do banco.
+
+---
+
+### 4.7 Segurança — ApiKeyFilter
+
+A segurança da API foi feita com um filtro que verifica o header `X-API-KEY`.
+
+Todas as requisições para os endpoints da API precisam enviar a chave correta. Caso a chave esteja ausente ou inválida, o sistema retorna erro `401 Unauthorized`.
+
+Para esta entrega, a API Key foi escolhida por ser uma forma simples de proteger os endpoints e facilitar os testes. Em um sistema real, seria necessário usar um controle mais completo, com usuários, permissões e tokens.
+
+---
+
+### 4.8 Tratamento de erros
+
+O projeto usa um tratamento global de erros para padronizar as respostas da API.
+
+Os principais casos tratados são:
+
+* dados inválidos enviados na requisição;
+* busca por recurso inexistente;
+* erro interno inesperado.
+
+Com isso, a API retorna mensagens mais organizadas e evita respostas diferentes para erros parecidos.
+
+---
+
+## 5. Fluxo básico da aplicação
+
+```text
+1. O cliente envia uma leitura para POST /api/v1/leituras
+        │
+2. O ApiKeyFilter valida o header X-API-KEY
+        │
+3. O LeituraController recebe os dados da requisição
+        │
+4. O LeituraService verifica se o sensor existe
+        │
+5. O sistema calcula o nível de alerta da leitura
+        │
+6. A leitura é salva no banco
+        │
+7. Se o nível for ALERTA ou CRITICO, um alerta é criado
+        │
+8. A API retorna a resposta para o cliente
 ```
-1. Gateway IoT envia leitura via POST /api/v1/leituras (com X-API-KEY)
-         │
-2. ApiKeyFilter valida o header
-         │
-3. LeituraController recebe e valida o DTO (Bean Validation)
-         │
-4. LeituraService calcula NivelAlerta com base no nivelAgua
-         │
-5. Leitura é persistida no banco
-         │
-6. Se nivel == ALERTA ou CRITICO:
-         └─→ AlertaRepository.save(novoAlerta) [automático]
-         │
-7. Response 201 Created retornado ao cliente com dados da leitura
 
-8. Dashboard consulta GET /api/v1/alertas?apenasAtivos=true
-         └─→ Exibe alertas críticos para a defesa civil
-```
+Exemplo: se um sensor enviar uma leitura com nível da água de 175 cm, o sistema classifica essa leitura como `CRITICO` e gera um alerta ativo para aquele sensor.
 
 ---
 
-## 6. Justificativa da Arquitetura
+## 6. Justificativa da arquitetura
 
-A arquitetura em camadas foi escolhida por ser o padrão mais maduro para APIs REST corporativas, com separação clara de responsabilidades:
+A arquitetura em camadas foi escolhida porque atende bem ao tamanho e ao objetivo do projeto. Ela permite separar a entrada da API, as regras de negócio e o acesso ao banco de dados.
 
-- **Baixo acoplamento:** cada camada depende apenas da inferior.
-- **Alta coesão:** cada classe tem uma responsabilidade única.
-- **Testabilidade:** services podem ser testados unitariamente com mocks dos repositories.
-- **Escalabilidade horizontal:** a API é stateless (sem sessão), pronta para escalar com múltiplas instâncias atrás de um load balancer.
-- **Evolutibilidade:** o banco H2 pode ser substituído por PostgreSQL ou Oracle apenas alterando o `application.properties`, sem mudança no código.
+Essa divisão ajuda principalmente em três pontos:
+
+* deixa o código mais organizado;
+* facilita manutenção e futuras alterações;
+* evita que toda a lógica fique concentrada nos controllers.
+
+No projeto, os controllers cuidam das requisições HTTP, os services cuidam das regras de negócio e os repositories cuidam da comunicação com o banco. Essa separação torna o funcionamento da aplicação mais claro.
+
+O uso do H2 foi escolhido para facilitar os testes locais, já que não exige instalação de um banco externo. Para uma versão mais completa, o banco poderia ser substituído por PostgreSQL ou Oracle, mantendo a mesma lógica principal da aplicação.
+
+A API também não usa sessão, o que facilita uma possível execução em mais de uma instância futuramente. Mesmo assim, para esta entrega, o foco principal foi construir uma API funcional, organizada e documentada.
 
 ---
 
-## 7. Tecnologias e Justificativas
+## 7. Tecnologias e justificativas
 
-| Tecnologia        | Justificativa                                                                  |
-|-------------------|--------------------------------------------------------------------------------|
-| Java 17 + Spring  | Ecossistema maduro, amplamente utilizado em sistemas corporativos brasileiros  |
-| Spring Data JPA   | Abstração de repositório que elimina SQL repetitivo                            |
-| H2 (dev)          | Banco em memória sem configuração, ideal para demos e testes                   |
-| Lombok            | Reduz boilerplate sem comprometer legibilidade                                 |
-| SpringDoc OpenAPI | Documentação interativa automática, facilita integração por terceiros          |
-| API Key (header)  | Autenticação simples e eficiente para comunicação máquina-a-máquina (IoT)      |
+| Tecnologia        | Justificativa                                                     |
+| ----------------- | ----------------------------------------------------------------- |
+| Java 17           | Linguagem usada no projeto e compatível com o Spring Boot.        |
+| Spring Boot 3     | Facilita a criação de APIs REST e a organização da aplicação.     |
+| Spring Data JPA   | Simplifica o acesso ao banco de dados por meio de repositories.   |
+| H2                | Banco em memória usado para testes e demonstração local.          |
+| Lombok            | Reduz código repetitivo, como getters, setters e construtores.    |
+| SpringDoc OpenAPI | Gera a documentação Swagger para testar os endpoints.             |
+| API Key           | Proteção simples para os endpoints da API nesta versão acadêmica. |
+
+---
